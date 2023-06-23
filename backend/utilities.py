@@ -206,7 +206,7 @@ class Utilities:
                             page: int = 1,
                             max: int = 1000):
         
-        if path == None:
+        if path is None:
             path = get_home_path()
 
         path = Path(path).resolve()
@@ -235,11 +235,11 @@ class Utilities:
                     files = filter(lambda file: re.search(filter_for, file.name) != None, files)
             except re.error:
                 files = filter(lambda file: file.name.find(filter_for) != -1, files)
-        
+
         # Ordering logic
         ord_arg = order_by.split("_")
         ord = ord_arg[0]
-        rev = True if ord_arg[1] == "asc" else False
+        rev = ord_arg[1] == "asc"
         match ord:
             case 'name':
                 files.sort(key=lambda x: x['file'].name.casefold(), reverse = rev)
@@ -254,7 +254,7 @@ class Utilities:
                 files.sort(key=lambda x: x['filest'].st_size, reverse = not rev)
                 # Folders has no file size, order by name instead
                 folders.sort(key=lambda x: x['file'].name.casefold())
-        
+
         #Constructing the final file list, folders first
         all =   [{
                     "isdir": x['is_dir'],

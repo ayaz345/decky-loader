@@ -37,8 +37,7 @@ class Tab:
 
     async def listen_for_message(self):
         async for message in self.websocket:
-            data = message.json()
-            yield data
+            yield message.json()
         logger.warn(f"The Tab {self.title} socket has been disconnected while listening for messages.")
         await self.close_websocket()
             
@@ -76,7 +75,11 @@ class Tab:
     async def has_global_var(self, var_name, manage_socket=True):
         res = await self.evaluate_js(f"window['{var_name}'] !== null && window['{var_name}'] !== undefined", False, manage_socket)
 
-        if not "result" in res or not "result" in res["result"] or not "value" in res["result"]["result"]:
+        if (
+            "result" not in res
+            or "result" not in res["result"]
+            or "value" not in res["result"]["result"]
+        ):
             return False
 
         return res["result"]["result"]["value"]
@@ -154,10 +157,10 @@ class Tab:
             }, True)
 
             logger.info(breakpoint_res)
-            
+
             # Page finishes loading when breakpoint hits
 
-            for x in range(20):
+            for _ in range(20):
                 # this works around 1/5 of the time, so just send it 8 times.
                 # the js accounts for being injected multiple times allowing only one instance to run at a time anyway
                 await self._send_devtools_cmd({
@@ -176,7 +179,7 @@ class Tab:
                 }
             }, False)
 
-            for x in range(4):
+            for _ in range(4):
                 await self._send_devtools_cmd({
                     "method": "Debugger.resume"
                 }, False)
@@ -281,7 +284,11 @@ class Tab:
     async def has_element(self, element_name, manage_socket=True):
         res = await self.evaluate_js(f"document.getElementById('{element_name}') != null", False, manage_socket)
 
-        if not "result" in res or not "result" in res["result"] or not "value" in res["result"]["result"]:
+        if (
+            "result" not in res
+            or "result" not in res["result"]
+            or "value" not in res["result"]["result"]
+        ):
             return False
 
         return res["result"]["result"]["value"]
@@ -373,26 +380,25 @@ async def get_tabs() -> List[Tab]:
         else:
             break
 
-    if res.status == 200:
-        r = await res.json()
-        return [Tab(i) for i in r]
-    else:
+    if res.status != 200:
         raise Exception(f"/json did not return 200. {await res.text()}")
+    r = await res.json()
+    return [Tab(i) for i in r]
 
 
 async def get_tab(tab_name) -> Tab:
     tabs = await get_tabs()
-    tab = next((i for i in tabs if i.title == tab_name), None)
-    if not tab:
+    if tab := next((i for i in tabs if i.title == tab_name), None):
+        return tab
+    else:
         raise ValueError(f"Tab {tab_name} not found")
-    return tab
 
 async def get_tab_lambda(test) -> Tab:
     tabs = await get_tabs()
-    tab = next((i for i in tabs if test(i)), None)
-    if not tab:
-        raise ValueError(f"Tab not found by lambda")
-    return tab
+    if tab := next((i for i in tabs if test(i)), None):
+        return tab
+    else:
+        raise ValueError("Tab not found by lambda")
 
 SHARED_CTX_NAMES = ["SharedJSContext", "Steam Shared Context presented by Valve™", "Steam", "SP"]
 CLOSEABLE_URLS = ["about:blank", "data:text/html,%3Cbody%3E%3C%2Fbody%3E"] # Closing anything other than these *really* likes to crash Steam
@@ -403,10 +409,10 @@ def tab_is_gamepadui(t: Tab) -> bool:
 
 async def get_gamepadui_tab() -> Tab:
     tabs = await get_tabs()
-    tab = next((i for i in tabs if tab_is_gamepadui(i)), None)
-    if not tab:
-        raise ValueError(f"GamepadUI Tab not found")
-    return tab
+    if tab := next((i for i in tabs if tab_is_gamepadui(i)), None):
+        return tab
+    else:
+        raise ValueError("GamepadUI Tab not found")
 
 async def inject_to_tab(tab_name, js, run_async=False):
     tab = await get_tab(tab_name)

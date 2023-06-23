@@ -90,7 +90,7 @@ class Updater:
             case _:
                 logger.error("You have an invalid branch set... Defaulting to prerelease service, please send the logs to the devs!")
                 url = "https://raw.githubusercontent.com/SteamDeckHomebrew/decky-loader/main/dist/plugin_loader-prerelease.service"
-        return str(url)
+        return url
 
     async def get_version(self):
         return {
@@ -108,7 +108,15 @@ class Updater:
                 remoteVersions = await res.json()
                 if selectedBranch == 0:
                     logger.debug("release type: release")
-                    remoteVersions = list(filter(lambda ver: ver["tag_name"].startswith("v") and not ver["prerelease"] and not ver["tag_name"].find("-pre") > 0 and ver["tag_name"], remoteVersions))
+                    remoteVersions = list(
+                        filter(
+                            lambda ver: ver["tag_name"].startswith("v")
+                            and not ver["prerelease"]
+                            and ver["tag_name"].find("-pre") <= 0
+                            and ver["tag_name"],
+                            remoteVersions,
+                        )
+                    )
                 elif selectedBranch == 1:
                     logger.debug("release type: pre-release")
                     remoteVersions = list(filter(lambda ver:ver["tag_name"].startswith("v"), remoteVersions))
@@ -119,7 +127,16 @@ class Updater:
         logger.debug("determining release type to find, branch is %i" % selectedBranch)
         if selectedBranch == 0:
             logger.debug("release type: release")
-            self.remoteVer = next(filter(lambda ver: ver["tag_name"].startswith("v") and not ver["prerelease"] and not ver["tag_name"].find("-pre") > 0 and ver["tag_name"], remoteVersions), None)
+            self.remoteVer = next(
+                filter(
+                    lambda ver: ver["tag_name"].startswith("v")
+                    and not ver["prerelease"]
+                    and ver["tag_name"].find("-pre") <= 0
+                    and ver["tag_name"],
+                    remoteVersions,
+                ),
+                None,
+            )
         elif selectedBranch == 1:
             logger.debug("release type: pre-release")
             self.remoteVer = next(filter(lambda ver:ver["tag_name"].startswith("v"), remoteVersions), None)
@@ -128,7 +145,9 @@ class Updater:
             raise ValueError("no valid branch found")
         logger.info("Updated remote version information")
         tab = await get_gamepadui_tab()
-        await tab.evaluate_js(f"window.DeckyPluginLoader.notifyUpdates()", False, True, False)
+        await tab.evaluate_js(
+            "window.DeckyPluginLoader.notifyUpdates()", False, True, False
+        )
         return await self.get_version()
 
     async def version_reloader(self):
@@ -143,16 +162,18 @@ class Updater:
     async def do_update(self):
         logger.debug("Starting update.")
         version = self.remoteVer["tag_name"]
-        download_url = None
         download_filename = "PluginLoader" if ON_LINUX else "PluginLoader.exe"
-        download_temp_filename = download_filename + ".new"
+        download_temp_filename = f"{download_filename}.new"
 
-        for x in self.remoteVer["assets"]:
-            if x["name"] == download_filename:
-                download_url = x["browser_download_url"]
-                break
-        
-        if download_url == None:
+        download_url = next(
+            (
+                x["browser_download_url"]
+                for x in self.remoteVer["assets"]
+                if x["name"] == download_filename
+            ),
+            None,
+        )
+        if download_url is None:
             raise Exception("Download url not found")
 
         service_url = self.get_service_url()
@@ -173,20 +194,20 @@ class Updater:
                     with open(path.join(getcwd(), "plugin_loader.service"), "wb") as out:
                         out.write(data)
                 except Exception as e:
-                    logger.error(f"Error at %s", exc_info=e)
+                    logger.error("Error at %s", exc_info=e)
                 with open(path.join(getcwd(), "plugin_loader.service"), "r", encoding="utf-8") as service_file:
                     service_data = service_file.read()
                 service_data = service_data.replace("${HOMEBREW_FOLDER}", helpers.get_homebrew_path())
                 with open(path.join(getcwd(), "plugin_loader.service"), "w", encoding="utf-8") as service_file:
                         service_file.write(service_data)
-                    
+
                 logger.debug("Saved service file")
                 logger.debug("Copying service file over current file.")
                 shutil.copy(service_file_path, "/etc/systemd/system/plugin_loader.service")
                 if not os.path.exists(path.join(getcwd(), ".systemd")):
                     os.mkdir(path.join(getcwd(), ".systemd"))
                 shutil.move(service_file_path, path.join(getcwd(), ".systemd")+"/plugin_loader.service")
-            
+
             logger.debug("Downloading binary")
             async with web.request("GET", download_url, ssl=helpers.get_ssl_context(), allow_redirects=True) as res:
                 total = int(res.headers.get('content-length', 0))

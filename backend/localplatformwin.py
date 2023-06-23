@@ -44,7 +44,7 @@ def get_privileged_path() -> str:
 def get_unprivileged_path() -> str:
     path = os.getenv("UNPRIVILEGED_PATH")
 
-    if path == None:
+    if path is None:
         path = os.getenv("PRIVILEGED_PATH", os.path.join(os.path.expanduser("~"), "homebrew"))
 
     return path

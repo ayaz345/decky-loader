@@ -48,9 +48,9 @@ def chown(path : str,  user : UserType = UserType.HOST_USER, recursive : bool = 
     user_str = ""
 
     if user == UserType.HOST_USER:
-        user_str = _get_user()+":"+_get_user_group()
+        user_str = f"{_get_user()}:{_get_user_group()}"
     elif user == UserType.EFFECTIVE_USER:
-        user_str = _get_effective_user()+":"+_get_effective_user_group()
+        user_str = f"{_get_effective_user()}:{_get_effective_user_group()}"
     elif user == UserType.ROOT:
         user_str = "root:root"
     else:
@@ -82,9 +82,7 @@ def get_home_path(user : UserType = UserType.HOST_USER) -> str:
         user_name = _get_user()
     elif user == UserType.EFFECTIVE_USER:
         user_name = _get_effective_user()
-    elif user == UserType.ROOT:
-        pass
-    else:
+    elif user != UserType.ROOT:
         raise Exception("Unknown User Type")
 
     return pwd.getpwnam(user_name).pw_dir
@@ -97,11 +95,9 @@ def setgid(user : UserType = UserType.HOST_USER):
 
     if user == UserType.HOST_USER:
         user_id = _get_user_group_id()
-    elif user == UserType.ROOT:
-        pass
-    else:
+    elif user != UserType.ROOT:
         raise Exception("Unknown user type")
-    
+
     os.setgid(user_id)
 
 def setuid(user : UserType = UserType.HOST_USER):
@@ -109,11 +105,9 @@ def setuid(user : UserType = UserType.HOST_USER):
 
     if user == UserType.HOST_USER:
         user_id = _get_user_id()
-    elif user == UserType.ROOT:
-        pass
-    else:
+    elif user != UserType.ROOT:
         raise Exception("Unknown user type")
-    
+
     os.setuid(user_id)
 
 async def service_active(service_name : str) -> bool:
@@ -139,27 +133,25 @@ async def service_start(service_name : str) -> bool:
 def get_privileged_path() -> str:
     path = os.getenv("PRIVILEGED_PATH")
 
-    if path == None:
+    if path is None:
         path = get_unprivileged_path()
 
     return path
 
 def _parent_dir(path : str) -> str:
-    if path == None:
+    if path is None:
         return None
 
-    if path.endswith('/'):
-        path = path[:-1]
-    
+    path = path.removesuffix('/')
     return os.path.dirname(path)
 
 def get_unprivileged_path() -> str:
     path = os.getenv("UNPRIVILEGED_PATH")
-    
-    if path == None:
+
+    if path is None:
         path = _parent_dir(os.getenv("PLUGIN_PATH"))
-    
-    if path == None:
+
+    if path is None:
         logger.debug("Unprivileged path is not properly configured. Making something up!")
         # Expected path of loader binary is /home/deck/homebrew/service/PluginLoader
         path = _parent_dir(_parent_dir(os.path.realpath(sys.argv[0])))
@@ -167,17 +159,17 @@ def get_unprivileged_path() -> str:
         if not os.path.exists(path):
             path = None
 
-    if path == None:
+    if path is None:
         logger.warn("Unprivileged path is not properly configured. Defaulting to /home/deck/homebrew")
         path = "/home/deck/homebrew" # We give up
-    
+
     return path
 
 
 def get_unprivileged_user() -> str:
     user = os.getenv("UNPRIVILEGED_USER")
 
-    if user == None:
+    if user is None:
         # Lets hope we can extract it from the unprivileged dir
         dir = os.path.realpath(get_unprivileged_path())
 
@@ -186,8 +178,8 @@ def get_unprivileged_user() -> str:
             if dir.startswith(os.path.realpath(pw.pw_dir)):
                 user = pw.pw_name
                 break
-    
-    if user == None:
+
+    if user is None:
         logger.warn("Unprivileged user is not properly configured. Defaulting to 'deck'")
         user = 'deck'
 
